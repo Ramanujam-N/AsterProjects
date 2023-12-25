@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from scipy.ndimage import rotate
 
-class ToTensor3D(object):
+class ToTensor2D(object):
     """Convert a PIL image or numpy array to a PyTorch tensor."""
 
     def __init__(self, labeled=True):
@@ -12,21 +12,20 @@ class ToTensor3D(object):
         rdict = {}
         input_data = sample['input']
 
-        ret_input = input_data.transpose(3, 0, 1, 2)  # Pytorch supports N x C x X_dim x Y_dim x Z_dim
+        ret_input = input_data.transpose(2, 0, 1)  # Pytorch supports N x C x X_dim x Y_dim
         ret_input = torch.from_numpy(ret_input).float()
         rdict['input'] = ret_input
 
         if self.labeled:
             gt_data = sample['gt']
             if gt_data is not None:
-                ret_gt = gt_data.transpose(3, 0, 1, 2)  # Pytorch supports N x C x X_dim x Y_dim x Z_dim
-                ret_gt = torch.from_numpy(ret_gt).float()
+                ret_gt = torch.tensor(gt_data).float()
 
                 rdict['gt'] = ret_gt
         sample.update(rdict)
         return sample
 
-class RandomRotation3D(object):
+class RandomRotation2D(object):
     """Make a rotation of the volume's values.
     :param degrees: Maximum rotation's degrees.
     """
@@ -45,33 +44,33 @@ class RandomRotation3D(object):
     def __call__(self, sample):
         rdict = {}
         input_data = sample['input']
-        if len(sample['input'].shape) != 4:  # C x X_dim x Y_dim x Z_dim
-            raise ValueError("Input of RandomRotation3D should be a 4 dimensionnal tensor.")
+        if len(sample['input'].shape) != 3:  # C x X_dim x Y_dim 
+            raise ValueError("Input of RandomRotation2D should be a 3 dimensionnal tensor.")
 
         angle = self.get_params(self.degrees)
 
         input_rotated = np.zeros(input_data.shape, dtype=input_data.dtype)
 
         gt_data = sample['gt'] if self.labeled else None
-        gt_rotated = np.zeros(gt_data.shape, dtype=gt_data.dtype) if self.labeled else None
+        # gt_rotated = np.zeros(gt_data.shape, dtype=gt_data.dtype) if self.labeled else None
 
         # Rotation angle chosen at random and rotation happens only on XY plane for both image and label.
-        for sh in range(input_data.shape[2]):
-            input_rotated[:, :, sh, 0] = rotate(input_data[:, :, sh, 0], float(angle), reshape=False, order=self.order,
-                                                mode='nearest')
+        # for sh in range(input_data.shape[2]):
+        input_rotated[:, :, 0] = rotate(input_data[:, :, 0], float(angle), reshape=False, order=self.order,
+                                            mode='nearest')
 
-            if self.labeled:
-                gt_rotated[:, :, sh, 0] = rotate(gt_data[:, :, sh, 0], float(angle), reshape=False, order=self.order,
-                                                 mode='nearest')
-                gt_rotated[:, :, sh, 1] = rotate(gt_data[:, :, sh, 1], float(angle), reshape=False, order=self.order,
-                                                 mode='nearest')
-                gt_rotated = (gt_rotated > 0.6).astype(float)
+            # if self.labeled:
+                # gt_rotated[:, :, sh, 0] = rotate(gt_data[:, :, sh, 0], float(angle), reshape=False, order=self.order,
+                #                                  mode='nearest')
+                # gt_rotated[:, :, sh, 1] = rotate(gt_data[:, :, sh, 1], float(angle), reshape=False, order=self.order,
+                #                                  mode='nearest')
+                # gt_rotated = (gt_rotated > 0.6).astype(float)
 
         # Update the dictionary with transformed image and labels
         rdict['input'] = input_rotated
 
-        if self.labeled:
-            rdict['gt'] = gt_rotated
+        # if self.labeled:
+            # rdict['gt'] = gt_rotated
         sample.update(rdict)
         return sample
 

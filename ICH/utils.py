@@ -4,18 +4,16 @@ import json
 
 np.random.seed(0)
 
-img_paths = np.array(glob.glob('../Dataset/ISLES-2022/**/**/**/*dwi.nii.gz'))
-gt_paths = np.array(glob.glob('../Dataset/ISLES-2022/derivatives/**/**/*msk.nii.gz'))
+img_paths = np.array(glob.glob('../Dataset/RSNA_2000/train_images/*dcm'))[:100]
 
 permutation = np.random.choice(len(img_paths),len(img_paths),replace=False).astype(np.int32)
 
 img_paths = img_paths[permutation].tolist()
-gt_paths = gt_paths[permutation].tolist()
 
 # train val test split 0.7 0.1 0.2
-data_split = {'train_imgs':img_paths[:int(0.7*len(img_paths))],'train_gts':gt_paths[:int(0.7*len(gt_paths))],
-              'val_imgs':img_paths[int(0.7*len(gt_paths)):int(0.8*len(img_paths))],'val_gts':gt_paths[int(0.7*len(gt_paths)):int(0.8*len(gt_paths))],
-              'test_imgs':img_paths[int(0.8*len(img_paths)):],'test_gts':gt_paths[int(0.8*len(gt_paths)):]}
+data_split = {'train_imgs':img_paths[:int(0.7*len(img_paths))],
+              'val_imgs':img_paths[int(0.7*len(img_paths)):int(0.8*len(img_paths))],
+              'test_imgs':img_paths[int(0.8*len(img_paths)):],}
 
 
 

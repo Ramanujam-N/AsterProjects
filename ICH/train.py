@@ -1,43 +1,61 @@
 import torch
+import torch.nn as nn
 import matplotlib.pyplot as plt
 from torchvision import transforms
 from torch.utils.data import DataLoader
 import torch.optim as optim
 from ImageLoader.ImageLoader import ICH_Reader
-from Architecture.UNet import UNet
+from Architecture.ResNet import ResNetClassifier
 from Architecture.LossFunctions import DiceLoss
-from Architecture.Tranformations import ToTensor3D,RandomRotation3D
+from Architecture.Tranformations import ToTensor2D,RandomRotation2D
 from tqdm import tqdm
 import numpy as np
 import json
+import pandas as pd
 
 train_transforms = transforms.Compose([
-            RandomRotation3D([10,10]),
-            ToTensor3D(True)])
+            RandomRotation2D([10,10]),
+            ToTensor2D(True)])
 
-val_transforms = transforms.Compose([ToTensor3D(True)])
+val_transforms = transforms.Compose([ToTensor2D(True)])
 
 
 device = 'cuda:0'
-criterion = DiceLoss().to(device)
+criterion = nn.BCELoss().to(device)
  
 data = json.load(open('data_split.json'))
 
-datadict_train = ICH_Reader(data['train_imgs'],data['train_gts'],transform=train_transforms)
-datadict_val = ICH_Reader(data['val_imgs'],data['val_gts'],transform=val_transforms)
+csv_path = '../Dataset/RSNA_2000/stage_2_train.csv'
+gt_data = pd.read_csv(csv_path)
 
-trainloader = DataLoader(datadict_train, batch_size=2, shuffle=True)
+#######################################################################################
+# Adapted from https://www.kaggle.com/code/taindow/pytorch-resnext-101-32x8d-benchmark/notebook
+    
+gt_data[['ID', 'Image', 'Diagnosis']] = gt_data['ID'].str.split('_', expand=True)
+gt_data = gt_data[['Image', 'Diagnosis', 'Label']]
+gt_data.drop_duplicates(inplace=True)
+gt_data = gt_data.pivot(index='Image', columns='Diagnosis', values='Label').reset_index()
+gt_data['Image'] = 'ID_' + gt_data['Image']
+gt_data.set_index('Image',inplace=True)
+
+########################################################################################
+
+
+datadict_train = ICH_Reader(data['train_imgs'],gt_data,transform=train_transforms)
+datadict_val = ICH_Reader(data['val_imgs'],gt_data,transform=val_transforms)
+
+trainloader = DataLoader(datadict_train, batch_size=16, shuffle=True)
 valloader = DataLoader(datadict_val, batch_size=1, shuffle=False)
 
 
 # model = UNet(in_channels=1,out_channels=2,init_features=32).to(device)
 # model_name = 'UNet'
 
-model = VGG_FCN(in_channels=1,out_channels=2,init_features=32).to(device)
-model_name = 'VGG_FCN'
+model = ResNetClassifier(in_channels=1,out_channels=6).to(device)
+model_name = 'ResNet'
 
-optimizer = optim.Adam(model.parameters(), lr = 1e-3, eps = 0.0001)
-scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.5,patience=10,min_lr = 1e-4,mode='min')
+optimizer = optim.Adam(model.parameters(), lr = 1e-4, eps = 0.0001)
+scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.5,patience=10,min_lr = 2e-5,mode='min')
 
 num_epochs = 200
 
